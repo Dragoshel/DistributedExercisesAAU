@@ -22,14 +22,12 @@ class RoutableMessage(MessageStub):
         return f'RoutableMessage: {self.source} -> {self.destination} : {self.content}'
 
 
-
-
 class RipCommunication(Device):
 
     def __init__(self, index: int, number_of_devices: int, medium: Medium):
         super().__init__(index, number_of_devices, medium)
-        
-        self.neighbors = [] # generate an appropriate list
+ 
+        self.neighbors = [(index - 1) % number_of_devices, (index + 1) % number_of_devices] # generate an appropriate list
 
         self.routing_table = dict()
 
@@ -41,6 +39,9 @@ class RipCommunication(Device):
             self.medium().send(RipMessage(self.index(), neigh, self.routing_table))
 
         while True:
+            if self.routing_table_complete(): 
+                break
+
             ingoing = self.medium().receive()
             if ingoing is None:
                 # this call is only used for synchronous networks
@@ -70,8 +71,26 @@ class RipCommunication(Device):
             self.medium().wait_for_next_round()
 
     def merge_tables(self, src, table):
-        # return None if the table does not change
-        pass
+        if table == self.routing_table:
+            return None
+
+        new_table = self.routing_table.copy()
+
+        for key, (next_hop, distance) in table.items():
+            if key not in new_table or distance > new_table[key][1]:
+                new_table[key] = (next_hop, distance)
+
+        return new_table
+
+
+    def routing_table_complete(self):
+        if len(self.routing_table) < self.number_of_devices()-1:
+            return False
+        for row in self.routing_table:
+            (next_hop, distance) = self.routing_table[row]
+            if distance > (self.number_of_devices()/2):
+                return False
+            return True
 
 
     def print_result(self):
